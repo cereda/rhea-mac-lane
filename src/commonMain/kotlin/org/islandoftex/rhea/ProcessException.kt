@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: BSD-3-Clause
+package org.islandoftex.rhea
+
+/**
+ * The boundary's own failure: the spawn refused (the command
+ * missing, the platform denying the call), the pipes broken. As
+ * opposed to the tool *running and answering* — any exit code is
+ * the [ProcessResult]'s vocabulary, not this exception's.
+ *
+ * @property output the partial capture: the output printed before
+ *   the failure is exactly what explains it.
+ */
+public class ProcessException(
+    message: String,
+    cause: Throwable? = null,
+    public val output: String = "",
+) : RuntimeException(message, cause)
