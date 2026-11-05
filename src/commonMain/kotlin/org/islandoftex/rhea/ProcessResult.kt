@@ -32,4 +32,18 @@ public sealed class ProcessResult {
         public val stdout: String? = null,
         public val stderr: String? = null,
     ) : ProcessResult()
+
+    /**
+     * The boundary destroyed the process: the caller's
+     * [RunOptions.timeout] expired, the graceful kill answered
+     * nothing and the forceful escalation landed. The partial
+     * capture survives — a destroyed tool's output is often
+     * exactly the story.
+     *
+     * @property reason why the boundary pulled the plug.
+     */
+    public class Destroyed(
+        override val output: String,
+        public val reason: DestroyReason,
+    ) : ProcessResult()
 }

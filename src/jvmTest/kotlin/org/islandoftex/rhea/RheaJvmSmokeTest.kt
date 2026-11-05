@@ -77,7 +77,7 @@ class RheaJvmSmokeTest {
         val result =
             Rhea.run(
                 "cat",
-                options = RunOptions(stdin = StdinPolicy.CLOSED),
+                options = RunOptions(stdin = Stdin.Closed),
             )
         assertIs<ProcessResult.Completed>(result)
         assertEquals(0, result.exitCode)

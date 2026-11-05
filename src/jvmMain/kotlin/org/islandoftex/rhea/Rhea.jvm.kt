@@ -3,6 +3,19 @@ package org.islandoftex.rhea
 
 import java.io.File
 import java.io.IOException
+import kotlin.time.Duration.Companion.milliseconds
+
+// the destroy escalation's grace: the graceful kill gets this long
+// before the forceful one lands
+private val DESTROY_GRACE = 500.milliseconds
+
+/** The capture's raw facts: what the drains harvested, post-mortem. */
+private class Captures(
+    val exitCode: Int,
+    val combined: String,
+    val stdout: String?,
+    val stderr: String?,
+)
 
 /**
  * The JVM actual: the standard `ProcessBuilder`, the capture riding
@@ -18,21 +31,24 @@ internal actual fun execute(
     options: RunOptions,
 ): ProcessResult {
     val builder = ProcessBuilder(listOf(executable) + args)
-    when (options.stdin) {
-        // the null device: the child reads an immediate end of
-        // stream (a bare PIPE would block — nobody holds its write
-        // end)
-        StdinPolicy.CLOSED -> {
+    when (val stdin = options.stdin) {
+        Stdin.Inherit -> {
+            builder.redirectInput(ProcessBuilder.Redirect.INHERIT)
+        }
+
+        Stdin.Closed -> {
             builder.redirectInput(
                 ProcessBuilder.Redirect.from(File(nullDevice())),
             )
         }
 
-        StdinPolicy.INHERIT -> {
-            builder.redirectInput(
-                ProcessBuilder.Redirect.INHERIT,
-            )
+        is Stdin.From -> {
+            builder.redirectInput(ProcessBuilder.Redirect.PIPE)
         }
+    }
+    options.directory?.let { builder.directory(File(it)) }
+    if (options.environment.isNotEmpty()) {
+        builder.environment().putAll(options.environment)
     }
     if (options.capture == CaptureMode.MERGED) {
         // the join happens BEFORE the spawn: the builder's own
@@ -50,16 +66,61 @@ internal actual fun execute(
             )
         }
 
-    return when (options.capture) {
-        CaptureMode.MERGED -> {
-            val output = process.inputStream.bufferedReader().useLines { it.joinToString("\n") }
-            reap(process)
-            ProcessResult.Completed(process.exitValue(), output)
+    // the JVM-exit destroyer: a hung child does not survive the
+    // caller's process (zt-exec's ShutdownHookProcessDestroyer's
+    // shape)
+    val shutdownHook = Thread { process.destroy() }
+    Runtime.getRuntime().addShutdownHook(shutdownHook)
+
+    // the timeout's watchdog: the graceful kill first, the
+    // forceful escalation after the grace; the flag's verdict is
+    // read AFTER the capture — never at the call
+    val timedOut =
+        java.util.concurrent.atomic
+            .AtomicBoolean(false)
+    options.timeout?.let { timeout ->
+        Thread {
+            Thread.sleep(timeout.inWholeMilliseconds)
+            if (process.isAlive) {
+                timedOut.set(true)
+                process.destroy()
+                if (!process.waitFor(DESTROY_GRACE.inWholeMilliseconds, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    process.destroyForcibly()
+                }
+            }
+        }.apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    try {
+        // the pumped stdin: a writer thread feeds the bytes and
+        // closes the stream — the child reads at its own pace
+        (options.stdin as? Stdin.From)?.let { from ->
+            val writer =
+                Thread {
+                    process.outputStream.use { it.write(from.bytes) }
+                }
+            writer.isDaemon = true
+            writer.start()
         }
 
-        CaptureMode.SEPARATE -> {
-            separateCapture(process)
+        val captures =
+            when (options.capture) {
+                CaptureMode.MERGED -> mergedCapture(process, options.sink)
+                CaptureMode.SEPARATE -> separateCapture(process, options.sink)
+            }
+
+        // the verdict: read the watchdog's flag HERE — the capture's
+        // end (the destroy's EOF) is the earliest honest moment
+        return if (timedOut.get()) {
+            ProcessResult.Destroyed(captures.combined, DestroyReason.TIMEOUT)
+        } else {
+            ProcessResult.Completed(captures.exitCode, captures.combined, captures.stdout, captures.stderr)
         }
+    } finally {
+        Runtime.getRuntime().removeShutdownHook(shutdownHook)
     }
 }
 
@@ -67,35 +128,60 @@ internal actual fun execute(
  * The separate capture: one lock, three buffers — the shared
  * buffer's append order IS the arrival order (the combined view's
  * near-true merge), the attributed buffers keep the streams apart.
+ * The sink (when present) hears every line with its attribution.
  */
-private fun separateCapture(process: Process): ProcessResult.Completed {
+private fun separateCapture(
+    process: Process,
+    sink: Sink?,
+): Captures {
     val lock = Any()
     val output = StringBuilder()
     val stdout = StringBuilder()
     val stderr = StringBuilder()
     val pumps =
         listOf(
-            pump(process.inputStream) { line ->
+            process.inputStream to Stream.OUT,
+            process.errorStream to Stream.ERR,
+        ).map { (stream, origin) ->
+            pump(stream) { line ->
                 synchronized(lock) {
                     output.appendLine(line)
-                    stdout.appendLine(line)
+                    when (origin) {
+                        Stream.OUT -> stdout.appendLine(line)
+                        else -> stderr.appendLine(line)
+                    }
+                    sink?.accept(line, origin)
                 }
-            },
-            pump(process.errorStream) { line ->
-                synchronized(lock) {
-                    output.appendLine(line)
-                    stderr.appendLine(line)
-                }
-            },
-        )
+            }
+        }
     pumps.forEach { it.join() }
     reap(process)
-    return ProcessResult.Completed(
+    return Captures(
         process.exitValue(),
         output.toString().trimEnd('\n'),
         stdout.toString().trimEnd('\n'),
         stderr.toString().trimEnd('\n'),
     )
+}
+
+/**
+ * The merged capture: the builder's fold already merged the
+ * streams — the lines arrive with the [Stream.UNKNOWN]
+ * attribution (the boundary refuses to guess).
+ */
+private fun mergedCapture(
+    process: Process,
+    sink: Sink?,
+): Captures {
+    val output = StringBuilder()
+    process.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
+        lines.forEach { line ->
+            output.appendLine(line)
+            sink?.accept(line, Stream.UNKNOWN)
+        }
+    }
+    reap(process)
+    return Captures(process.exitValue(), output.toString().trimEnd('\n'), null, null)
 }
 
 /**
@@ -125,7 +211,7 @@ private fun pump(
     sink: (String) -> Unit,
 ): Thread =
     Thread {
-        stream.bufferedReader().useLines { lines ->
+        stream.bufferedReader(Charsets.UTF_8).useLines { lines ->
             lines.forEach { sink(it) }
         }
     }.apply {
