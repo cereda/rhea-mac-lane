@@ -57,8 +57,11 @@ private object PosixConstants {
     // the buffer a read rides in
     const val BUFFER_SIZE = 8_192
 
-    // the exec failure's exit status (the shell convention)
-    const val EXIT_COULD_NOT_EXECUTE = 127
+    // the exec failure's exit status: RHEA'S OWN MARKER (254, the
+    // value the shell conventions never claim) — the tool's own
+    // 127 stays the tool's answer, never mistaken for the
+    // boundary's failure
+    const val EXIT_COULD_NOT_EXECUTE = 254
 
     // the wait status factorization's masks (the low 7 bits name
     // the signal, the high byte holds the exit code)

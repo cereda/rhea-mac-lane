@@ -56,9 +56,39 @@ dependencies {
 | Member | Meaning |
 |---|---|
 | `output: String` | the capture: the combined view (the arrival order under the separate mode, the kernel's true order under the merged one) — the fact that explains the verdict |
-| `Completed.exitCode: Int` | the tool's own answer (zero, the failure codes, the shell's 127 conventions — all vocabulary) |
+| `Completed.exitCode: Int` | the tool's own answer (zero, the failure codes — all vocabulary; the boundary's own exec failure wears 254 and speaks as `ProcessException`) |
 | `Completed.stdout: String?` | the attributed stdout — populated under the separate capture, null under the merged one |
 | `Completed.stderr: String?` | the attributed stderr — the same mode's terms |
+| `Destroyed(output, reason)` | the boundary destroyed the child (the caller's timeout expired: the graceful kill, the grace, the forceful escalation); the partial capture survives — a destroyed tool's output is often exactly the story |
+
+### `Stdin`, the sealed policy
+
+| Face | Meaning |
+|---|---|
+| `Stdin.Inherit` (the default) | the child reads the parent's stdin — the interactive tools' floor |
+| `Stdin.Closed` | the child reads an immediate end of stream |
+| `Stdin.From(bytes)` | the child drinks the bytes, then an end of stream |
+
+### `Sink`, the logger's seam
+
+The port's dependency-free on purpose: the consumer's logger adapts in one
+lambda. The lines arrive with their stream's attribution — the level-routing's
+floor (the stderr's lines to the warnings, say); the merged capture's lines
+arrive as `Stream.UNKNOWN` (the pipe erased the attribution — the port stays
+honest).
+
+| Member | Meaning |
+|---|---|
+| `Sink { line, stream -> … }` | the live consumer of the child's lines alongside the capture |
+| `Stream.OUT` / `Stream.ERR` | the attribution under the separate capture |
+| `Stream.UNKNOWN` | the merged capture's face: the pipe erased the attribution |
+
+### The timeout
+
+`RunOptions.timeout: Duration?` — the boundary's ladder: the graceful kill
+first, the grace period, the forceful escalation; the verdict speaks
+`Destroyed` and the partial capture survives. `null` (the default): the child
+runs as long as it wants.
 
 ### `RunOptions`, the modifiers
 
