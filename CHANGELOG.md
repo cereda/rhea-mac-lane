@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* The mingw tier's full parity: the SEPARATE capture's concurrent
+  drain (the Win32 threads — the deadlock's documented caveat
+  dies), the pumped stdin's real pipe (the child's stdin was the
+  nothing's face before!), and the timeout's budget: the
+  process-wait's expiry speaks TerminateProcess (the Windows'
+  kill's only face — no graceful signal exists) and the verdict
+  speaks Destroyed.
+
 * The seed tier: the one-shot synchronous run (`Rhea.run`), the
   typed verdict (`ProcessResult.Completed` with the exit code and
   the capture — any exit code is an answer, not an exception),

@@ -55,7 +55,15 @@ class RheaWindowsSmokeTest {
     fun `the machine name answers in one line`() {
         val result = Rhea.run("hostname")
         assertIs<ProcessResult.Completed>(result)
-        assertEquals(1, result.output.lines().size)
+        // the trailing newline's face: the trim's the answer's
+        // friend
+        assertEquals(
+            1,
+            result.output
+                .trimEnd()
+                .lines()
+                .size,
+        )
         assertTrue(result.output.isNotBlank())
     }
 }
