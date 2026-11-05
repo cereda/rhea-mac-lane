@@ -23,3 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Four platforms from one port: the JVM's `ProcessBuilder`, POSIX
   `fork`/`execvp` with the `poll()`-drained pipes, and the Win32
   `CreateProcessW` with the Microsoft quoting rules.
+* The tiers: the working directory (the child's `chdir`, the
+  failure's story riding the captured stderr), the environment's
+  overrides (`putenv` over the inherited), the line sink (the
+  attributed lines: `OUT`/`ERR` — and `UNKNOWN` under the merged
+  capture, the typed absence's face; the logger's seam with zero
+  dependencies — the consumer's logger adapts in one lambda), the
+  pumped stdin (`Stdin.From` — the bytes feed the child, the
+  pipe's EOF closes the feed; **the fork's hygiene: the child
+  closes its inherited copy of the write end**, or the child's
+  read never sees EOF — the deadlock's root, the forensics' cat
+  graveyard's verdict), and the timeout's destroy escalation (the
+  watchdog's detached pthread: the graceful SIGTERM, the grace,
+  the forceful SIGKILL — the killed child's partial capture
+  survives in the `Destroyed` verdict).

@@ -18,7 +18,12 @@ public sealed class Stdin {
     /** The child reads an immediate end of stream. */
     public object Closed : Stdin()
 
-    /** The child reads [bytes], then an end of stream. */
+    /**
+     * The child reads [bytes], then an end of stream.
+     *
+     * @property bytes the bytes the child's stdin drinks before
+     *   the pipe closes.
+     */
     public class From(
         public val bytes: ByteArray,
     ) : Stdin()

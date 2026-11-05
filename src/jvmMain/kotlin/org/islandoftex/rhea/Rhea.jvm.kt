@@ -18,18 +18,15 @@ private class Captures(
 )
 
 /**
- * The JVM actual: the standard `ProcessBuilder`, the capture riding
- * its streams. MERGED joins stderr into stdout at the builder's
- * level (`redirectErrorStream` — the kernel-adjacent join, the
- * ordering as close to the child's writes as the JVM offers);
- * SEPARATE captures the two streams and pumps them concurrently —
- * the sequential drain deadlocks on a chatty child.
+ * The builder's phase: the stdin's policy, the working directory,
+ * the environment's overrides, the capture's fold — and the spawn
+ * itself (the boundary's failure wearing ProcessException).
  */
-internal actual fun execute(
+private fun buildProcess(
     executable: String,
     args: List<String>,
     options: RunOptions,
-): ProcessResult {
+): Process {
     val builder = ProcessBuilder(listOf(executable) + args)
     when (val stdin = options.stdin) {
         Stdin.Inherit -> {
@@ -56,15 +53,30 @@ internal actual fun execute(
         builder.redirectErrorStream(true)
     }
 
-    val process =
-        try {
-            builder.start()
-        } catch (expected: IOException) {
-            throw ProcessException(
-                "The command $executable could not run: ${expected.message}",
-                expected,
-            )
-        }
+    return try {
+        builder.start()
+    } catch (expected: IOException) {
+        throw ProcessException(
+            "The command $executable could not run: ${expected.message}",
+            expected,
+        )
+    }
+}
+
+/**
+ * The JVM actual: the standard `ProcessBuilder`, the capture riding
+ * its streams. MERGED joins stderr into stdout at the builder's
+ * level (`redirectErrorStream` — the kernel-adjacent join, the
+ * ordering as close to the child's writes as the JVM offers);
+ * SEPARATE captures the two streams and pumps them concurrently —
+ * the sequential drain deadlocks on a chatty child.
+ */
+internal actual fun execute(
+    executable: String,
+    args: List<String>,
+    options: RunOptions,
+): ProcessResult {
+    val process = buildProcess(executable, args, options)
 
     // the JVM-exit destroyer: a hung child does not survive the
     // caller's process (zt-exec's ShutdownHookProcessDestroyer's

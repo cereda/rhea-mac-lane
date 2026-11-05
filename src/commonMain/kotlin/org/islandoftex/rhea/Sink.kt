@@ -8,8 +8,13 @@ package org.islandoftex.rhea
  * pipe erased the attribution).
  */
 public enum class Stream {
+    /** The child's standard output. */
     OUT,
+
+    /** The child's standard error. */
     ERR,
+
+    /** The attribution's erased face: the merged capture's pipe. */
     UNKNOWN,
 }
 

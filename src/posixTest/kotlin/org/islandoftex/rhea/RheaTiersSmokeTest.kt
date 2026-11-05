@@ -44,7 +44,7 @@ class RheaTiersSmokeTest {
         val result =
             Rhea.run(
                 "/bin/sh",
-                args = listOf("-c", "echo answered; echo complained >&2"),
+                args = listOf("-c", "echo answered; sleep 0.3; echo complained >&2"),
                 options = RunOptions(sink = { line, stream -> heard.add(line to stream) }),
             )
         assertIs<ProcessResult.Completed>(result)
