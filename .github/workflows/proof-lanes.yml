@@ -1,0 +1,52 @@
+# The proof lanes: the disposable mirror's one workflow — every
+# platform's native suite (and the JVM's) on GitHub's runners, so
+# the fleet's verdict needs no machine changes. A push = a
+# verdict; the dispatch = the re-run button.
+
+name: the proof lanes
+
+on:
+  - push
+  - workflow_dispatch
+
+jobs:
+  proof:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            task: macosArm64Test
+          - os: ubuntu-latest
+            task: linuxX64Test
+          - os: windows-latest
+            task: mingwX64Test
+          - os: ubuntu-latest
+            task: jvmTest
+    runs-on: ${{ matrix.os }}
+    name: proof (${{ matrix.task }})
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: The gate's face
+        run: |
+          chmod +x gradlew
+          ./gradlew ${{ matrix.task }} --console=plain
+
+      - name: The reports' artifact (on the red)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.task }}-reports
+          path: |
+            build/reports/tests/
+            rhea/build/reports/tests/
+            rhea-coroutines/build/reports/tests/
