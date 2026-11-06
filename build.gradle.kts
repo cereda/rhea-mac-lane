@@ -37,6 +37,14 @@ plugins {
 
 // the lockstep: the root's changelog drives the version for every
 // module of the family
+spotlessChangelog {
+    changelogFile("CHANGELOG.md")
+    setAppendDashSnapshotUnless_dashPrelease(true)
+    ifFoundBumpBreaking("breaking change")
+    tagPrefix("v")
+    commitMessage("Release v{{version}}")
+    remote("origin")
+}
 val rheaVersion = spotlessChangelog.versionNext
 
 allprojects {
