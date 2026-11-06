@@ -1,0 +1,94 @@
+build:
+  maxIssues: 0
+
+comments:
+  active: true
+  UndocumentedPublicFunction:
+    active: true
+    excludes: ['**/commonTest/**', '**/jvmTest/**', '**/posixTest/**', '**/mingwX64Test/**', '**/macosArm64Test/**', '**/linuxX64Test/**']
+  UndocumentedPublicClass:
+    active: true
+    excludes: ['**/commonTest/**', '**/jvmTest/**', '**/posixTest/**', '**/mingwX64Test/**', '**/macosArm64Test/**', '**/linuxX64Test/**']
+  UndocumentedPublicProperty:
+    active: true
+    excludes: ['**/commonTest/**', '**/jvmTest/**', '**/posixTest/**', '**/mingwX64Test/**', '**/macosArm64Test/**', '**/linuxX64Test/**']
+
+naming:
+  active: true
+  FunctionNaming:
+    active: true
+    excludes: ['**/commonTest/**', '**/jvmTest/**', '**/posixTest/**', '**/mingwX64Test/**', '**/macosArm64Test/**', '**/linuxX64Test/**']
+
+complexity:
+  active: true
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 15
+    ignoreSingleWhenExpression: false
+    ignoreSimpleWhenEntries: false
+    ignoreNestingFunctions: false
+    nestingFunctions:
+      - run
+      - let
+      - apply
+      - with
+      - also
+      - use
+      - forEach
+  LargeClass:
+    active: true
+    threshold: 600
+  LongMethod:
+    active: true
+    threshold: 60
+  NestedBlockDepth:
+    active: true
+    threshold: 4
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 11
+    # the session test classes accumulate tests naturally (the
+    # proof-per-face discipline) — the class's own bar rides one
+    # above the rest
+    thresholdInClasses: 12
+    thresholdInInterfaces: 11
+    thresholdInObjects: 11
+    thresholdInEnums: 11
+    ignoreDeprecated: false
+    ignorePrivate: true
+    ignoreOverridden: true
+
+exceptions:
+  active: true
+  NotImplementedDeclaration:
+    active: true
+  PrintStackTrace:
+    active: true
+  TooGenericExceptionCaught:
+    active: true
+    exceptionNames:
+      - ArrayIndexOutOfBoundsException
+      - Error
+      - Exception
+      - IllegalMonitorStateException
+      - NullPointerException
+      - IndexOutOfBoundsException
+      - RuntimeException
+      - Throwable
+    allowedExceptionNameRegex: "^(_|(ignore|expected).*)"
+  TooGenericExceptionThrown:
+    active: true
+    exceptionNames:
+      - Error
+      - Exception
+      - Throwable
+
+style:
+  active: true
+  ForbiddenComment:
+    active: true
+    comments:
+      - 'NIY:'
+      - 'FIXME:'
+      - 'STOPSHIP:'
+    allowedPatterns: ""

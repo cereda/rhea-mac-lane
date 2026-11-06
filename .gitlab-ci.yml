@@ -1,0 +1,173 @@
+variables:
+  # disable the Gradle daemon for Continuous Integration servers
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+stages:
+  - build
+  - test
+  - publish
+
+build:linux:jdk21:
+  image: eclipse-temurin:21-jdk
+  stage: build
+  script:
+    # the Kotlin/Native toolchain downloads itself into the cached .konan
+    - export KONAN_USER_HOME="$CI_PROJECT_DIR/.konan"
+    # create the library packages for distribution
+    - ./gradlew --build-cache assemble
+    - mkdir libs
+    - cp rhea/build/libs/*.jar rhea-coroutines/build/libs/*.jar libs/
+    # create checksum file to make sure we're distributing the right thing
+    - cd libs
+    - md5sum *.jar > checksums.txt
+  artifacts:
+    name: "$CI_COMMIT_REF_NAME-snapshot"
+    paths:
+      - libs
+    expire_in: 1 week
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: push
+    paths:
+      - build
+      - rhea/build
+      - rhea-coroutines/build
+      - .gradle
+      - .konan
+
+test:linux:jdk21:
+  image: eclipse-temurin:21-jdk
+  stage: test
+  script:
+    # the JVM suite, the host-native suite and the coverage gate in one
+    # job; the warnings are errors. allTests is safe in the minimal
+    # image: the targets are the JVM and the three natives
+    - export KONAN_USER_HOME="$CI_PROJECT_DIR/.konan"
+    - ./gradlew allTests koverVerify -PwarningsAsErrors=true
+  artifacts:
+    name: "$CI_COMMIT_REF_NAME-reports"
+    paths:
+      - build/reports
+    expire_in: 1 week
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build
+      - rhea/build
+      - rhea-coroutines/build
+      - .gradle
+      - .konan
+
+targets:
+  image: eclipse-temurin:21-jdk
+  stage: test
+  # the KMP matrix: the runnable suites ran above; the remaining
+  # Kotlin/Native targets get a compile smoke — real runs need
+  # matching hosts
+  script:
+    - export KONAN_USER_HOME="$CI_PROJECT_DIR/.konan"
+    - ./gradlew compileTestKotlinMacosArm64 compileTestKotlinMingwX64
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull-push
+    paths:
+      - build
+      - rhea/build
+      - rhea-coroutines/build
+      - .gradle
+      - .konan
+
+test:detekt:
+  image: eclipse-temurin:21-jdk
+  stage: test
+  script:
+    - ./gradlew detekt
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build
+      - rhea/build
+      - rhea-coroutines/build
+      - .gradle
+
+test:spotless:
+  image: eclipse-temurin:21-jdk
+  stage: test
+  script:
+    # `spotlessCheck` fails on any unformatted file without rewriting it;
+    # the changelog gate rides along — both are source-hygiene lints
+    - ./gradlew spotlessCheck changelogCheck
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build
+      - rhea/build
+      - rhea-coroutines/build
+      - .gradle
+
+test:docs:
+  image: eclipse-temurin:21-jdk
+  stage: test
+  script:
+    # the Dokka gate: reportUndocumented + failOnWarning — the KDoc's
+    # own enforcement (a missing document or a broken link fails the job)
+    - ./gradlew dokkaGenerateHtml
+  artifacts:
+    paths:
+      - build/dokka
+      - rhea/build/dokka
+      - rhea-coroutines/build/dokka
+    expire_in: 1 week
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build
+      - rhea/build
+      - rhea-coroutines/build
+      - .gradle
+
+test:dependencyupdates:
+  image: eclipse-temurin:21-jdk
+  stage: test
+  script:
+    - ./gradlew --no-parallel dependencyUpdates
+
+publish:gitlab-snapshot:
+  image: eclipse-temurin:21-jdk
+  stage: publish
+  script:
+    - ./gradlew publish -PjobToken=$CI_JOB_TOKEN
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: push
+    paths:
+      - build
+      - rhea/build
+      - rhea-coroutines/build
+      - .gradle
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+      when: always
+    - when: never
+
+publish:gitlab:
+  image: eclipse-temurin:21-jdk
+  stage: publish
+  script:
+    - ./gradlew publish -Prelease=true -PjobToken=$CI_JOB_TOKEN
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: push
+    paths:
+      - build
+      - rhea/build
+      - rhea-coroutines/build
+      - .gradle
+  rules:
+    - if: '$CI_COMMIT_TAG != null'
+      when: always
+    - when: never

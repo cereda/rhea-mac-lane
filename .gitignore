@@ -1,0 +1,6 @@
+.gradle/
+build/
+konan/
+.konan/
+*.iml
+.idea/
